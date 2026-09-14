@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>RIDEVOLT M1.5</title>
+<script src="https://beacio.com/beacio.js"></script>
+<style>
+:root{--bg:#0b0f14;--panel:#141b23;--panel2:#1b2632;--text:#f5f7fa;--muted:#9fb0c2;--accent:#27d3ff;--accent2:#7cff8f;--warn:#ffd166}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(#081018,#0b0f14);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;min-height:100vh;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.app{max-width:760px;margin:0 auto;padding:16px}
+h1{font-size:30px;margin:4px 0 0;letter-spacing:.6px}.sub{color:var(--muted);font-size:13px;margin-top:4px}
+.card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid #263546;border-radius:20px;padding:16px;margin-top:14px}
+.track{position:relative;height:190px;overflow:hidden}.sky{position:absolute;inset:0;background:linear-gradient(#45b8ff 0 50%,#83d86f 50% 64%,#4c5664 64% 100%)}.sea{position:absolute;left:0;right:0;top:82px;height:22px;background:#168bd1;opacity:.65}
+.road{position:absolute;left:4%;right:4%;bottom:23px;height:68px;background:#39414b;border-top:4px solid #d7d9db;border-bottom:4px solid #d7d9db;border-radius:8px}.road:after{content:"";position:absolute;left:0;right:0;top:30px;border-top:3px dashed #f3e36d}
+.finish{position:absolute;right:7%;bottom:22px;width:10px;height:74px;background:repeating-linear-gradient(0deg,#fff 0 8px,#111 8px 16px)}
+.bike{position:absolute;bottom:48px;left:6%;width:64px;height:42px;transition:left .12s linear}
+.wheel{position:absolute;bottom:0;width:22px;height:22px;border:3px solid #111;border-radius:50%;background:#ddd}.w1{left:3px}.w2{right:3px}
+.frame{position:absolute;left:17px;bottom:10px;width:30px;height:16px;border-left:4px solid #ffb703;border-bottom:4px solid #ffb703;transform:skewX(-25deg)}
+.rider{position:absolute;left:27px;bottom:24px;width:11px;height:11px;border-radius:50%;background:#ffd4a8}.rider:after{content:"";position:absolute;left:-4px;top:9px;width:20px;height:15px;border-left:5px solid #ffb703;transform:rotate(-20deg)}
+.banner{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.5);padding:7px 12px;border-radius:999px;font-weight:800;font-size:13px}
+.hud{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.metric{background:#0f1620;border-radius:16px;padding:12px;text-align:center}.metric .v{font-size:24px;font-weight:800}.metric .l{font-size:11px;color:var(--muted)}
+.rpm{text-align:center;font-size:72px;font-weight:900;line-height:1}.label{text-align:center;color:var(--muted);margin-top:5px}
+button{appearance:none;border:none;border-radius:14px;padding:15px 10px;font-size:16px;font-weight:850;background:#233246;color:#fff;width:100%;margin-top:10px}
+button.primary{background:linear-gradient(135deg,#08a7db,#24d3ff);color:#00131c}button.good{background:linear-gradient(135deg,#43dc72,#7cff8f);color:#03220b}
+.status{margin-top:10px;padding:12px;border-radius:13px;background:#0f1620;color:var(--muted);text-align:center;font-size:13px}
+.progress{height:14px;background:#0c131b;border-radius:999px;overflow:hidden;margin-top:12px}.bar{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.row{display:flex;gap:10px}.row button{flex:1}
+.small{font-size:11px;color:var(--muted);line-height:1.45;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="app">
+<h1>RIDEVOLT</h1>
+<div class="sub">MVP 001.5 · S314 real → Bluetooth → RPM → Costa Azul</div>
+
+<div class="card track">
+  <div class="sky"></div><div class="sea"></div><div class="road"></div><div class="finish"></div>
+  <div id="banner" class="banner">SIN CONECTAR</div>
+  <div id="bike" class="bike">
+    <div class="wheel w1"></div><div class="wheel w2"></div><div class="frame"></div><div class="rider"></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="hud">
+    <div class="metric"><div id="speed" class="v">0</div><div class="l">KM/H</div></div>
+    <div class="metric"><div id="time" class="v">0:00.0</div><div class="l">TIEMPO</div></div>
+    <div class="metric"><div id="distance" class="v">0</div><div class="l">METROS</div></div>
+  </div>
+  <div class="progress"><div id="bar" class="bar"></div></div>
+</div>
+
+<div class="card">
+  <div id="rpm" class="rpm">0</div>
+  <div class="label">RPM REALES DEL S314</div>
+
+  <button id="connect" class="primary" onclick="connectSensor()">CONECTAR S314</button>
+  <button id="race" class="good" onclick="startRace()" disabled>INICIAR CARRERA</button>
+
+  <div id="status" class="status">Pulsa CONECTAR S314.</div>
+  <div class="small">
+    Este prototipo usa el estándar Bluetooth Cycling Speed and Cadence:
+    servicio 0x1816 y característica CSC Measurement 0x2A5B.
+  </div>
+</div>
+</div>
+
+<script>
+const CSC_SERVICE = 0x1816;
+const CSC_MEASUREMENT = 0x2A5B;
+let device=null, characteristic=null;
+let lastRevs=null, lastTime=null;
+let rpm=0, shownRPM=0, speed=0, dist=0, running=false, startTime=0, lastFrame=performance.now();
+
+function u16(d,o){ return d.getUint8(o) | (d.getUint8(o+1)<<8); }
+
+async function connectSensor(){
+  const st=document.getElementById('status');
+  try{
+    if(!navigator.bluetooth) throw new Error("Web Bluetooth no disponible en este navegador.");
+    st.textContent="Buscando sensor…";
+    device=await navigator.bluetooth.requestDevice({
+      filters:[{services:[CSC_SERVICE]}],
+      optionalServices:[CSC_SERVICE]
+    });
+    device.addEventListener('gattserverdisconnected',()=>{
+      st.textContent="Sensor desconectado.";
+      document.getElementById('banner').textContent="DESCONECTADO";
+      document.getElementById('race').disabled=true;
+    });
+    const server=await device.gatt.connect();
+    st.textContent="Conectado. Leyendo cadencia…";
+    const service=await server.getPrimaryService(CSC_SERVICE);
+    characteristic=await service.getCharacteristic(CSC_MEASUREMENT);
+    await characteristic.startNotifications();
+    characteristic.addEventListener('characteristicvaluechanged',handleCSC);
+    document.getElementById('banner').textContent="S314 CONECTADO";
+    document.getElementById('race').disabled=false;
+    st.textContent="S314 conectado. Gira la biela para ver RPM.";
+  }catch(e){
+    st.textContent="No se pudo conectar: "+e.message;
+  }
+}
+
+function handleCSC(ev){
+  const d=ev.target.value;
+  const flags=d.getUint8(0);
+  const wheel=(flags & 1)!==0;
+  const crank=(flags & 2)!==0;
+  let i=1;
+  if(wheel) i+=6;
+  if(!crank || d.byteLength<i+4) return;
+  const revs=u16(d,i);
+  const evt=u16(d,i+2);
+  if(lastRevs!==null && lastTime!==null){
+    const dr=(revs-lastRevs+65536)%65536;
+    const dt=(evt-lastTime+65536)%65536;
+    if(dr>0 && dt>0){
+      const secs=dt/1024;
+      const calc=(dr/secs)*60;
+      if(calc>=0 && calc<=250){
+        rpm=calc;
+        document.getElementById('rpm').textContent=Math.round(rpm);
+      }
+    }
+  }
+  lastRevs=revs; lastTime=evt;
+}
+
+function speedFromRPM(r){
+  const p=[[0,0],[40,6],[60,14],[80,23],[100,34],[120,46],[130,51],[150,55]];
+  if(r<=p[0][0]) return p[0][1];
+  if(r>=p[p.length-1][0]) return p[p.length-1][1];
+  for(let i=0;i<p.length-1;i++){
+    if(r>=p[i][0]&&r<=p[i+1][0]){
+      const t=(r-p[i][0])/(p[i+1][0]-p[i][0]);
+      return p[i][1]+(p[i+1][1]-p[i][1])*t;
+    }
+  }
+  return 0;
+}
+
+function startRace(){
+  dist=0; speed=0; shownRPM=0; running=true; startTime=performance.now();
+  document.getElementById('banner').textContent="GO!";
+}
+
+function fmt(ms){
+  const s=ms/1000,m=Math.floor(s/60),sec=(s-m*60).toFixed(1).padStart(4,'0');
+  return `${m}:${sec}`;
+}
+
+function loop(now){
+  const dt=Math.min((now-lastFrame)/1000,.2); lastFrame=now;
+  shownRPM+=(rpm-shownRPM)*.22;
+  const ts=speedFromRPM(shownRPM);
+  speed+=(ts-speed)*.14;
+  if(running){
+    dist += speed*1000/3600*dt;
+    if(dist>=500){dist=500;running=false;document.getElementById('banner').textContent="🏁 META";}
+    else if(dist>=450)document.getElementById('banner').textContent="SPRINT FINAL";
+    else if(dist>=350)document.getElementById('banner').textContent="SUBIDA";
+    else if(dist>=250)document.getElementById('banner').textContent="ZONA RÁPIDA";
+    else if(dist>=150)document.getElementById('banner').textContent="CURVA";
+    else document.getElementById('banner').textContent="COSTA AZUL";
+  }
+  document.getElementById('speed').textContent=Math.round(speed);
+  document.getElementById('distance').textContent=Math.round(dist);
+  if(running)document.getElementById('time').textContent=fmt(now-startTime);
+  const pct=Math.min(100,dist/500*100);
+  document.getElementById('bar').style.width=pct+"%";
+  document.getElementById('bike').style.left=(6+pct*.87)+"%";
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
