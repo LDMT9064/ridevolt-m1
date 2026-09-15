@@ -73,6 +73,7 @@ const CSC_MEASUREMENT = 0x2A5B;
 let device=null, characteristic=null;
 let lastRevs=null, lastTime=null;
 let rpm=0, shownRPM=0, speed=0, dist=0, running=false, startTime=0, lastFrame=performance.now();
+  let lastPedal=0;
 
 function u16(d,o){ return d.getUint8(o) | (d.getUint8(o+1)<<8); }
 
@@ -122,6 +123,7 @@ function handleCSC(ev){
       const calc=(dr/secs)*60;
       if(calc>=0 && calc<=250){
         rpm=calc;
+        lastPedal=performarce.nou();
         document.getElementById('rpm').textContent=Math.round(rpm);
       }
     }
@@ -155,6 +157,7 @@ function fmt(ms){
 function loop(now){
   const dt=Math.min((now-lastFrame)/1000,.2); lastFrame=now;
   shownRPM+=(rpm-shownRPM)*.22;
+  if(lastPedal>0 && performance.now()-lastPedal>1500){rpm=0;document.getElementById('rpm').textContent=0;}
   const ts=speedFromRPM(shownRPM);
   speed+=(ts-speed)*.14;
   if(running){
